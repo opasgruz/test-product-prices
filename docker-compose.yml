@@ -1,0 +1,71 @@
+services:
+  app:
+    container_name: laravel-app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./src:/var/www/html
+    depends_on:
+      - postgres
+    networks:
+      - laravel-super-apps
+    ports:
+      - "8000:8000"  # Порт для artisan serve
+
+  postgres:
+    container_name: laravel-db
+    image: postgres:15
+    restart: always
+    volumes:
+      - ./docker/postgres/data:/var/lib/postgresql/data  # Исправлен путь
+    environment:
+      - POSTGRES_DB=test_products_prices
+      - POSTGRES_USER=products
+      - POSTGRES_PASSWORD=123products123
+    ports:
+      - "5432:5432"
+    networks:
+      - laravel-super-apps
+
+  web:
+    container_name: laravel-web
+    image: nginx:stable-alpine
+    restart: always
+    ports:
+      - "8080:80"  # Nginx будет доступен на порту 8080
+    volumes:
+      - ./src:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+    networks:
+      - laravel-super-apps
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: laravel-pgAdmin
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL:-admin@example.com}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD:-admin}
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - laravel-super-apps
+
+  adminer:
+    container_name: laravel-adminer
+    image: adminer
+    restart: always
+    ports:
+      - "8081:80"  # Изменен порт, чтобы не конфликтовать с Nginx
+    depends_on:
+      - postgres
+    networks:
+      - laravel-super-apps
+
+networks:
+  laravel-super-apps:
+    driver: bridge

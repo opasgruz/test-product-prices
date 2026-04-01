@@ -1,0 +1,65 @@
+# Editor
+.vscode
+
+# Container file
+/docker/postgres/data/*
+!/docker/postgres/data/.gitkeep
+
+# Laravel dependencies (игнорируем vendor внутри src)
+/src/vendor
+
+# Laravel specific (внутри src)
+/src/storage
+/src/storage/*.key
+/src/storage/framework/cache/data/*
+/src/storage/framework/sessions/*
+/src/storage/framework/views/*
+/src/storage/logs/*.log
+/src/.env.backup
+/src/.phpunit.result.cache
+
+# Composer
+/src/composer.phar
+
+# Logs
+*.log
+
+# IDE
+/.idea
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Node modules (если есть)
+/src/node_modules
+
+# Compiled assets
+/src/public/css
+/src/public/js
+/src/public/mix-manifest.json
+/src/public/build
+
+# Testing
+/src/coverage
+/src/phpunit.xml
+/src/testbench.yaml
+
+# Temporary files
+/tmp
+/temp
+/src/temp
+
+# Laravel debug
+/src/.debugbar
+
+# Laravel backup
+/src/.backup
