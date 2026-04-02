@@ -98,3 +98,5 @@ ide-helper:
 	docker compose exec app php artisan ide-helper:generate
 	docker compose exec app php artisan ide-helper:meta
 	docker compose exec app php artisan ide-helper:models --nowrite
+seed-test-data:
+	docker compose exec app php artisan seed-test-data
