@@ -7,14 +7,28 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * Модель товара.
+ *
+ * @property int $product_id
+ * @property string $product_name
+ * @property int $category_id
+ * @property int $manufacturer_id
+ */
 class Product extends Model
 {
     use HasFactory;
 
+    /** @var string Название таблицы в БД */
     protected $table = 'product';
-    protected $primaryKey = 'product_id'; // PK согласно ТЗ
+
+    /** @var string Первичный ключ */
+    protected $primaryKey = 'product_id';
+
+    /** @var bool Отключение автоматических меток времени */
     public $timestamps = false;
 
+    /** @var array<int, string> Разрешенные поля для массового заполнения */
     protected $fillable = [
         'product_name',
         'category_id',
@@ -22,7 +36,9 @@ class Product extends Model
     ];
 
     /**
-     * Связь: товар принадлежит производителю
+     * Связь: товар принадлежит производителю.
+     *
+     * @return BelongsTo
      */
     public function manufacturer(): BelongsTo
     {
@@ -30,7 +46,9 @@ class Product extends Model
     }
 
     /**
-     * Связь: товар имеет историю цен
+     * Связь: товар имеет историю цен.
+     *
+     * @return HasMany
      */
     public function prices(): HasMany
     {

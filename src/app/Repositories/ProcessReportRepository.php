@@ -3,23 +3,38 @@
 namespace App\Repositories;
 
 use App\Models\ProcessStatus;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
+/**
+ * Репозиторий для управления данными процессов генерации отчетов.
+ */
 class ProcessReportRepository
 {
+    /**
+     * Создает начальную запись о процессе.
+     *
+     * @param string $uuid
+     * @return int ID созданной записи.
+     */
     public function createInitialProcess(string $uuid): int
     {
         return DB::table('report_process')->insertGetId([
             'rp_pid' => $uuid,
             'rp_start_datetime' => Carbon::now(),
             'ps_id' => ProcessStatus::STATUS_STARTED,
-            'rp_exec_time' => 0
+            'rp_exec_time' => 0,
         ], 'rp_id');
     }
 
-    public function findByPid(string $pid)
+    /**
+     * Поиск процесса по его PID (UUID).
+     *
+     * @param string $pid
+     * @return object|null
+     */
+    public function findByPid(string $pid): ?object
     {
         return DB::table('report_process')
             ->join('process_status', 'report_process.ps_id', '=', 'process_status.ps_id')
@@ -27,34 +42,62 @@ class ProcessReportRepository
             ->first();
     }
 
-    public function updateStatus(int $id, int $statusId, ?string $filePath = null, float $execTime = 0)
+    /**
+     * Обновление статуса и метаданных процесса.
+     *
+     * @param int $id
+     * @param int $statusId
+     * @param string|null $filePath
+     * @param float $execTime
+     * @return void
+     */
+    public function updateStatus(int $id, int $statusId, ?string $filePath = null, float $execTime = 0): void
     {
         $data = ['ps_id' => $statusId];
-        if ($filePath) $data['rp_file_save_path'] = $filePath;
-        if ($execTime > 0) $data['rp_exec_time'] = $execTime;
+
+        if ($filePath) {
+            $data['rp_file_save_path'] = $filePath;
+        }
+
+        if ($execTime > 0) {
+            $data['rp_exec_time'] = $execTime;
+        }
 
         DB::table('report_process')->where('rp_id', $id)->update($data);
     }
 
+    /**
+     * Формирование сложного ETL-отчета на уровне БД и сохранение в CSV.
+     *
+     * @param int $categoryId
+     * @param string $filePath Абсолютный путь к файлу.
+     * @return void
+     * @throws RuntimeException
+     */
     public function runComplexReport(int $categoryId, string $filePath): void
     {
         $startDate = Carbon::now()->subDays(8)->format('Y-m-d');
         $endDate = Carbon::now()->format('Y-m-d');
 
-        // Шаг 1: Extract во временную таблицу
+        // 1. Извлечение данных (Extract)
         DB::statement("
             CREATE TEMPORARY TABLE temp_price_slice ON COMMIT DROP AS
             SELECT p.product_id, p.price_date, p.price
             FROM price p
             JOIN product pr ON p.product_id = pr.product_id
-            WHERE p.price_date >= :start_date and p.price_date < :end_date
-            AND pr.category_id = :category_id
-        ", ['start_date' => $startDate, 'end_date' => $endDate, 'category_id' => $categoryId]);
+            WHERE p.price_date >= :start_date
+              AND p.price_date < :end_date
+              AND pr.category_id = :category_id
+        ", [
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'category_id' => $categoryId,
+        ]);
 
-        DB::statement("CREATE INDEX idx_slice_lookup ON temp_price_slice (product_id, price_date, price)");
+        DB::statement("CREATE INDEX idx_slice_lookup ON temp_price_slice (product_id, price_date)");
         DB::statement("ANALYZE temp_price_slice");
 
-        // Шаг 2: Transform (Агрегация)
+        // 2. Агрегация данных (Transform)
         DB::statement("
             CREATE TEMPORARY TABLE temp_report_agg ON COMMIT DROP AS
             SELECT DISTINCT ON (product_id)
@@ -69,7 +112,7 @@ class ProcessReportRepository
                 w_max AS (PARTITION BY product_id ORDER BY price DESC, price_date DESC)
         ");
 
-        // Шаг 3: Разворот в финальную таблицу
+        // 3. Подготовка финальной структуры
         DB::statement("
             CREATE TEMPORARY TABLE final_report_table ON COMMIT DROP AS
             SELECT
@@ -84,41 +127,40 @@ class ProcessReportRepository
                 VALUES (t.min_price, t.min_price_date), (t.max_price, t.max_price_date)
             ) AS v(actual_price, actual_date)
         ");
-//        $count = DB::selectOne("SELECT count(*) AS total FROM final_report_table")->total;
-//
-//        // Выводим результат и прерываем выполнение для теста
-//        dd([
-//            'total_rows' => $count,
-//            'category' => $categoryId,
-//            'period' => "from $startDate to $endDate"
-//        ]);
-        // Шаг 4: Выгрузка через COPY
-        // Примечание: Для работы COPY у пользователя БД должны быть права superuser или используйте \copy в psql.
-        // В Laravel часто используется поток (Stream) или формирование строки.
-        //DB::statement("COPY (SELECT * FROM final_report_table) TO '$filePath' WITH (FORMAT CSV, HEADER, DELIMITER ',')");
 
-        $file = fopen($filePath, 'w');
+        $this->writeToCsv($filePath);
+    }
 
-        // Добавляем заголовки (BOM для корректного открытия в Excel, если нужно)
-        fputcsv($file, ['manufacturer_name', 'product_name', 'price', 'price_date']);
-
-        // Используем курсор, чтобы не потреблять много памяти при больших отчетах
-        $query = "SELECT * FROM final_report_table";
-        $results = DB::cursor($query);
-
-        foreach ($results as $row) {
-            fputcsv($file, [
-                $row->manufacturer_name,
-                $row->product_name,
-                $row->price,
-                $row->price_date
-            ]);
+    /**
+     * Потоковая запись данных из временной таблицы в CSV.
+     *
+     * @param string $filePath
+     * @return void
+     */
+    private function writeToCsv(string $filePath): void
+    {
+        $handle = fopen($filePath, 'w');
+        if (!$handle) {
+            throw new RuntimeException("Не удалось открыть файл для записи: {$filePath}");
         }
 
-        fclose($file);
-        if (file_exists($filePath)) {
-            // 0644 позволяет владельцу писать/читать, а остальным (веб-серверу) — только читать
-            chmod($filePath, 0644);
+        try {
+            // Заголовки CSV
+            fputcsv($handle, ['manufacturer_name', 'product_name', 'price', 'price_date']);
+
+            // Использование курсора для экономии RAM
+            $cursor = DB::table('final_report_table')->orderBy('manufacturer_name')->cursor();
+
+            foreach ($cursor as $row) {
+                fputcsv($handle, [
+                    $row->manufacturer_name,
+                    $row->product_name,
+                    $row->price,
+                    $row->price_date,
+                ]);
+            }
+        } finally {
+            fclose($handle);
         }
     }
 }

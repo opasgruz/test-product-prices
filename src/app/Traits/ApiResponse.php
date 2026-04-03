@@ -39,9 +39,9 @@ trait ApiResponse
      * @param int $statusCode
      * @param array $data
      *
-     * @return mixed
+     * @return JsonResponse
      */
-    public function sendError(string $message, int $statusCode = 400, $data = [])
+    public function sendError(string $message, int $statusCode = 400, $data = []): JsonResponse
     {
         $result = ['message' => $message];
         if (!empty($data)) {

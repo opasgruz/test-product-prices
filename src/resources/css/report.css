@@ -1,0 +1,42 @@
+/* public/css/reports.css */
+
+.container {
+    margin-top: 2rem;
+    max-width: 1100px;
+}
+
+/* Стилизация карточки фильтров */
+.report-card {
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e9ecef;
+}
+
+/* Выделение строки с ошибкой (Статус 3) */
+.table-danger-row {
+    background-color: #fff5f5 !important;
+    transition: background-color 0.3s ease;
+}
+
+.table-danger-row td {
+    color: #dc3545 !important;
+}
+
+/* Кнопки */
+.btn-primary {
+    background-color: #4e73df;
+    border-color: #4e73df;
+}
+
+.btn-secondary {
+    background-color: #858796;
+}
+
+/* Кастомные статусы */
+.status-badge {
+    padding: 0.4em 0.8em;
+    border-radius: 50rem;
+    font-size: 0.85em;
+    display: inline-block;
+}
