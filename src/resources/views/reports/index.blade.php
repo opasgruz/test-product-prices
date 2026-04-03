@@ -47,15 +47,23 @@
     </div>
 
     <script>
+        /**
+         * Загрузка списка процессов с поддержкой пагинации.
+         */
         async function loadProcesses(page = 1) {
             try {
+                // Если page не передан или null, выходим (для отключенных кнопок пагинации)
+                if (!page) return;
+
                 const response = await fetch(`/api/v1/reports/processes?page=${page}`);
                 const data = await response.json();
+
                 const tbody = document.getElementById('processTableBody');
                 tbody.innerHTML = '';
 
+                // 1. Отрисовка строк таблицы
                 data.data.forEach(process => {
-                    // Логика выделения строки цветом
+                    // Статус 3 — это ошибка, выделяем строку красным (класс из вашего CSS)
                     const isError = (process.ps_id === 3);
                     const rowClass = isError ? 'table-danger-row' : '';
 
@@ -66,33 +74,74 @@
                     }[process.ps_id] || 'text-muted';
 
                     tbody.innerHTML += `
-                    <tr class="${rowClass}">
-                        <td class="ps-3 fw-bold">${process.rp_id}</td>
-                        <td class="small text-muted">${process.rp_pid}</td>
-                        <td>${new Date(process.rp_start_datetime).toLocaleString()}</td>
-                        <td>${process.rp_exec_time || '0'} сек.</td>
-                        <td>
-                            <span class="fw-bold ${statusColor}">
-                                ${process.status ? process.status.ps_name : 'Неизвестно'}
-                            </span>
-                        </td>
-                        <td class="text-center">
-                            ${process.rp_file_save_path
+                <tr class="${rowClass}">
+                    <td class="ps-3 fw-bold">${process.rp_id}</td>
+                    <td class="small text-muted">${process.rp_pid}</td>
+                    <td>${new Date(process.rp_start_datetime).toLocaleString()}</td>
+                    <td>${process.rp_exec_time || '0'} сек.</td>
+                    <td>
+                        <span class="fw-bold ${statusColor}">
+                            ${process.status ? process.status.ps_name : 'Неизвестно'}
+                        </span>
+                    </td>
+                    <td class="text-center">
+                        ${process.rp_file_save_path
                         ? `<a href="${process.rp_file_save_path}" class="btn btn-sm btn-success shadow-sm" download>
-                                    💾 Скачать CSV
-                                   </a>`
-                        : (isError ? '❌ Отменен' : '<span class="spinner-border spinner-border-sm text-secondary"></span>')}
-                        </td>
-                    </tr>
-                    `;
+                                💾 Скачать CSV
+                               </a>`
+                        : (isError ? '❌ Ошибка' : '<span class="spinner-border spinner-border-sm text-secondary"></span>')}
+                    </td>
+                </tr>
+                `;
                 });
+
+                // 2. Вызов функции отрисовки пагинации
+                renderPagination(data);
+
             } catch (error) {
                 console.error('Ошибка загрузки данных:', error);
             }
         }
 
-        document.addEventListener('DOMContentLoaded', () => loadProcesses(1));
+        /**
+         * Отрисовка кнопок пагинации на основе данных от API.
+         */
+        function renderPagination(data) {
+            const paginationWrapper = document.getElementById('paginationLinks');
 
+            // Если страниц меньше одной, скрываем пагинацию
+            if (!data.links || data.last_page <= 1) {
+                paginationWrapper.innerHTML = '';
+                return;
+            }
+
+            let html = '<nav><ul class="pagination pagination-sm justify-content-center shadow-sm">';
+
+            data.links.forEach(link => {
+                const activeClass = link.active ? 'active' : '';
+                const disabledClass = !link.url ? 'disabled' : '';
+
+                // Используем поле "page" из вашего JSON для перехода
+                const pageNum = link.page;
+
+                html += `
+                <li class="page-item ${activeClass} ${disabledClass}">
+                    <button class="page-link"
+                            onclick="loadProcesses(${pageNum})"
+                            ${!pageNum ? 'disabled' : ''}>
+                        ${link.label.replace('&laquo;', '«').replace('&raquo;', '»')}
+                    </button>
+                </li>
+            `;
+            });
+
+            html += '</ul></nav>';
+            paginationWrapper.innerHTML = html;
+        }
+
+        /**
+         * Запуск генерации отчета.
+         */
         async function generateReport() {
             const categoryId = document.getElementById('categorySelect').value;
             const button = document.querySelector('button[onclick="generateReport()"]');
@@ -110,16 +159,28 @@
                 });
 
                 const data = await response.json();
+
+                // ВАЖНО: Выводим текстовое сообщение из ответа (например, "Отчёт уже генерируется")
+                if (data.message) {
+                    alert(data.message);
+                }
+
                 if (response.ok) {
+                    // Обновляем список, чтобы увидеть новую запись
                     loadProcesses(1);
-                } else {
-                    alert(data.errors ? Object.values(data.errors).flat().join('\n') : 'Ошибка запуска');
+                } else if (data.errors) {
+                    // Вывод ошибок валидации Laravel (422)
+                    alert(Object.values(data.errors).flat().join('\n'));
                 }
             } catch (error) {
-                alert('Ошибка сети');
+                alert('Ошибка при выполнении запроса');
+                console.error(error);
             } finally {
                 button.disabled = false;
             }
         }
+
+        // Первичная загрузка при открытии страницы
+        document.addEventListener('DOMContentLoaded', () => loadProcesses(1));
     </script>
 @endsection
