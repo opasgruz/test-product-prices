@@ -71,10 +71,10 @@ class ProcessReportRepository
      *
      * @param int $categoryId
      * @param string $filePath Абсолютный путь к файлу.
-     * @return void
+     * @return bool
      * @throws RuntimeException
      */
-    public function runComplexReport(int $categoryId, string $filePath): void
+    public function runComplexReport(int $categoryId, string $filePath): bool
     {
         $startDate = Carbon::now()->subDays(8)->format('Y-m-d');
         $endDate = Carbon::now()->format('Y-m-d');
@@ -93,6 +93,12 @@ class ProcessReportRepository
             'end_date' => $endDate,
             'category_id' => $categoryId,
         ]);
+
+        // ПРОВЕРКА: Есть ли данные для записи?
+        $count = DB::table('temp_price_slice')->count();
+        if ($count === 0) {
+            return false;
+        }
 
         DB::statement("CREATE INDEX idx_slice_lookup ON temp_price_slice (product_id, price_date)");
         DB::statement("ANALYZE temp_price_slice");
@@ -129,6 +135,8 @@ class ProcessReportRepository
         ");
 
         $this->writeToCsv($filePath);
+
+        return true;
     }
 
     /**

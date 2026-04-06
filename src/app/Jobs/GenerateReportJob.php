@@ -61,19 +61,30 @@ class GenerateReportJob implements ShouldQueue
             DB::beginTransaction();
 
             // Генерация данных и запись в файл
-            $repository->runComplexReport($this->categoryId, $absolutePath);
+            $hasData = $repository->runComplexReport($this->categoryId, $absolutePath);
 
             DB::commit();
 
             $execTime = round(microtime(true) - $startTime, 2);
             $downloadUrl = $disk->url($fileName);
 
-            $repository->updateStatus(
-                $this->rpId,
-                ProcessStatus::STATUS_COMPLETED,
-                $downloadUrl,
-                $execTime
-            );
+            if ($hasData) {
+                $downloadUrl = $disk->url($fileName);
+                $repository->updateStatus(
+                    $this->rpId,
+                    ProcessStatus::STATUS_COMPLETED,
+                    $downloadUrl,
+                    $execTime
+                );
+            } else {
+                // Статус 4 — нет товаров
+                $repository->updateStatus(
+                    $this->rpId,
+                    ProcessStatus::STATUS_NO_PRODUCTS,
+                    null,
+                    $execTime
+                );
+            }
         } catch (Exception $e) {
             DB::rollBack();
 

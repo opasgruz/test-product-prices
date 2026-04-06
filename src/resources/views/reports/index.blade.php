@@ -63,36 +63,45 @@
 
                 // 1. Отрисовка строк таблицы
                 data.data.forEach(process => {
-                    // Статус 3 — это ошибка, выделяем строку красным (класс из вашего CSS)
                     const isError = (process.ps_id === 3);
-                    const rowClass = isError ? 'table-danger-row' : '';
+                    const isEmpty = (process.ps_id === 4); // Новый статус
+                    const rowClass = isError ? 'table-danger-row' : (isEmpty ? 'table-warning-row' : '');
 
                     const statusColor = {
                         1: 'text-primary',   // Запуск
                         2: 'text-success',   // Завершен
-                        3: 'text-danger'     // Ошибка
+                        3: 'text-danger',    // Ошибка
+                        4: 'text-warning'    // Нет товаров
                     }[process.ps_id] || 'text-muted';
 
+                    // Логика отображения колонки "Результат"
+                    let resultHtml = '';
+                    if (process.rp_file_save_path && process.ps_id === 2) {
+                        resultHtml = `<a href="${process.rp_file_save_path}" class="btn btn-sm btn-success shadow-sm" download>
+                        💾 Скачать CSV
+                      </a>`;
+                    } else if (isError) {
+                        resultHtml = '❌ Ошибка';
+                    } else if (isEmpty) {
+                        resultHtml = '∅ Нет данных';
+                    } else {
+                        resultHtml = '<span class="spinner-border spinner-border-sm text-secondary"></span>';
+                    }
+
                     tbody.innerHTML += `
-                <tr class="${rowClass}">
-                    <td class="ps-3 fw-bold">${process.rp_id}</td>
-                    <td class="small text-muted">${process.rp_pid}</td>
-                    <td>${new Date(process.rp_start_datetime).toLocaleString()}</td>
-                    <td>${process.rp_exec_time || '0'} сек.</td>
-                    <td>
-                        <span class="fw-bold ${statusColor}">
-                            ${process.status ? process.status.ps_name : 'Неизвестно'}
-                        </span>
-                    </td>
-                    <td class="text-center">
-                        ${process.rp_file_save_path
-                        ? `<a href="${process.rp_file_save_path}" class="btn btn-sm btn-success shadow-sm" download>
-                                💾 Скачать CSV
-                               </a>`
-                        : (isError ? '❌ Ошибка' : '<span class="spinner-border spinner-border-sm text-secondary"></span>')}
-                    </td>
-                </tr>
-                `;
+                        <tr class="${rowClass}">
+                            <td class="ps-3 fw-bold">${process.rp_id}</td>
+                            <td class="small text-muted">${process.rp_pid}</td>
+                            <td>${new Date(process.rp_start_datetime).toLocaleString()}</td>
+                            <td>${process.rp_exec_time || '0'} сек.</td>
+                            <td>
+                                <span class="fw-bold ${statusColor}">
+                                    ${process.status ? process.status.ps_name : (isEmpty ? 'Нет товаров' : 'Неизвестно')}
+                                </span>
+                            </td>
+                            <td class="text-center">${resultHtml}</td>
+                        </tr>
+                    `;
                 });
 
                 // 2. Вызов функции отрисовки пагинации
