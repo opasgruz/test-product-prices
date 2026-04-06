@@ -63,3 +63,5 @@ Thumbs.db
 
 # Laravel backup
 /src/.backup
+
+.env

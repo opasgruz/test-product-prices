@@ -17,6 +17,7 @@ return new class extends Migration {
             ['ps_id' => 1, 'ps_name' => 'Запуск'],   //
             ['ps_id' => 2, 'ps_name' => 'Завершен'], //
             ['ps_id' => 3, 'ps_name' => 'Ошибка'],   //
+            ['ps_id' => 4, 'ps_name' => 'Нет товаров'],   //
         ]);
 
         // Таблица производителей

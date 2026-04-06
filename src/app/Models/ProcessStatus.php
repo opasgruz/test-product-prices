@@ -13,13 +13,16 @@ use Illuminate\Database\Eloquent\Model;
 class ProcessStatus extends Model
 {
     /** Статус: Запуск процесса */
-    public const STATUS_STARTED = 1;
+    public const int STATUS_STARTED = 1;
 
     /** Статус: Процесс успешно завершен */
-    public const STATUS_COMPLETED = 2;
+    public const int STATUS_COMPLETED = 2;
 
     /** Статус: Произошла ошибка */
-    public const STATUS_ERROR = 3;
+    public const int STATUS_ERROR = 3;
+
+    /** Статус: Нето товаров по категории */
+    public const int STATUS_NO_PRODUCTS = 4;
 
     /** @var string Название таблицы в БД */
     protected $table = 'process_status';

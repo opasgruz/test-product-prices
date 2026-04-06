@@ -84,6 +84,19 @@ services:
     networks:
       - laravel-super-apps
 
+  worker:
+    container_name: laravel-worker
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    volumes:
+      - ./src:/var/www/html
+    depends_on:
+      - postgres
+    networks:
+      - laravel-super-apps
+    command: php /var/www/html/artisan queue:work --verbose --tries=3 --timeout=90
 networks:
   laravel-super-apps:
     driver: bridge

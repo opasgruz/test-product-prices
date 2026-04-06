@@ -1,3 +1,29 @@
+install:
+	@if [ ! -f .env ]; then cp .env.example .env; fi
+	@if [ ! -f src/.env ]; then cp src/.env.example src/.env; fi
+	docker compose up -d --build
+	docker compose exec app composer install
+	docker compose exec app php artisan key:generate
+
+	# Создаем структуру папок внутри storage, если их нет
+	docker compose exec app mkdir -p storage/framework/cache/data
+	docker compose exec app mkdir -p storage/framework/sessions
+	docker compose exec app mkdir -p storage/framework/views
+	docker compose exec app mkdir -p storage/app/public/reports
+
+	docker compose exec app php artisan storage:link
+
+	# Выставляем права (используем www:www из вашего конфига)
+	docker compose exec --user root app chown -R www:www storage bootstrap/cache
+	docker compose exec --user root app chmod -R 775 storage bootstrap/cache
+
+	@make fresh
+	docker compose exec app php artisan db:seed --class=TestDataSeeder
+	docker compose exec app npm install
+
+	@make down
+	@make up
+	@echo "Развертывание завершено. Проект доступен на http://localhost:8080/reports"
 up:
 	docker compose up -d
 build:
